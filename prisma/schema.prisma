@@ -1,0 +1,522 @@
+// =========================
+// DATA SOURCE
+// =========================
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+
+}
+
+// =========================
+// GENERATOR
+// =========================
+generator client {
+  provider = "prisma-client-js"
+}
+
+// =========================
+// ENUMS
+// =========================
+
+enum RoleName {
+  ADMIN
+  MEMBER
+}
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+  CLOSED
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  RESIGNED
+  RETIRED
+  TERMINATED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  ADJUSTMENT
+}
+
+enum SavingCategory {
+  MONTHLY_SAVING
+  ADDITIONAL_SAVING
+  WITHDRAWAL
+  ADJUSTMENT
+}
+enum ShareTransactionType {
+  INITIAL_SHARE
+  ADDITIONAL_SHARE
+  ADJUSTMENT
+}
+
+enum LedgerTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum LoanStatus {
+  PENDING
+  QUEUED            // Waiting for Fund
+  APPROVED
+  REJECTED
+  DISBURSED
+  ACTIVE
+  COMPLETED
+  OVERDUE
+  DEFAULTED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  PAYROLL
+}
+
+
+// =========================
+// SYSTEM CONFIGURATION
+// =========================
+model SystemConfiguration {
+  id                        Int      @id @default(autoincrement())
+  systemName                String   @default("University Saving, Share, Credit and Loan Management System")
+  cooperativeInfo           String?
+  fiscalYear                String?
+  defaultCurrency           String   @default("ETB")
+  
+  minMonthlySaving          Decimal  @db.Decimal(12, 2)
+  minMonthlyShare           Decimal  @db.Decimal(12, 2)
+  shareUnitPrice            Decimal  @db.Decimal(12, 2)
+  defaultLoanInterestRate   Decimal  @db.Decimal(5, 2)
+  maxLoanMultiplier         Decimal  @db.Decimal(5, 2)
+  latePaymentPenaltyPercent Decimal  @db.Decimal(5, 2)
+  defaultRepaymentPeriod    Int      // in months
+  gracePeriodDays           Int
+  maxActiveLoansPerMember   Int
+  minMembershipDurationDays Int
+
+  sessionTimeoutMinutes     Int      @default(15)
+  
+  updatedAt                 DateTime @updatedAt
+  updatedById               Int?
+  updatedBy                 User?    @relation(fields: [updatedById], references: [id])
+}
+
+// =========================
+// ROLES & USERS
+// =========================
+
+model Role {
+  id    Int      @id @default(autoincrement())
+  name  RoleName @unique
+  users User[]
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  email        String?   @unique
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+
+  roleId Int
+  role   Role @relation(fields: [roleId], references: [id])
+
+  member Member?
+
+  savingsCreated        Saving[]
+  sharesCreated         Share[]
+  loansApproved         Loan[]
+  payrollUploads        PayrollUpload[]
+  ledgersCreated        BankLedger[]
+  unionLedgers          UnionLedger[]
+  auditLogs             AuditLog[]
+  notifications         Notification[]
+  loanRepayments        LoanRepayment[]
+  documents             Document[]
+  configurationsUpdated SystemConfiguration[]
+}
+
+// =========================
+// CAMPUS
+// =========================
+
+model Campus {
+  id            Int     @id @default(autoincrement())
+  name          String
+  code          String  @unique
+  location      String?
+  contactPerson String?
+  contactNumber String?
+  email         String?
+  status        Boolean @default(true)
+  description   String?
+
+  // RELATIONSHIP: One Campus has many Staff/Members
+  staff         Staff[] 
+  members       Member[]
+
+}
+model Staff {
+  id        Int      @id @default(autoincrement())
+  role      String   // 'ADMIN' or 'ACADEMIC'
+  
+  // RELATIONSHIP: Many Staff belong to One Campus
+  campus    Campus   @relation(fields: [campusId], references: [id])
+  campusId  Int
+}
+
+// =========================
+// MEMBER
+// =========================
+
+model Member {
+  id                  Int      @id @default(autoincrement())
+  membershipNo        String   @unique
+  employeeId          String   @unique
+  fullName            String
+  gender              String?
+  dateOfBirth         DateTime?
+  phone               String?  @unique
+  email               String?
+  residentialAddress  String?
+  nationalId          String?
+  emergencyContact    String?
+  maritalStatus       String?
+  emergencyContactRel String?  // Next of Kin
+  
+  
+  // Employment Information
+  department          String?
+  collegeFaculty      String?
+  officeUnit          String?
+  position            String?
+  employmentType      String?
+  monthlySalary       Decimal  @db.Decimal(12, 2)
+  dateOfEmployment    DateTime?
+  employmentStatus    EmploymentStatus @default(ACTIVE)
+
+  // Educational Information
+  highestEducation       String?
+  fieldOfStudy           String?
+  educationalInstitution String?
+  graduationYear         Int?
+  
+  // Membership Information
+  status              MemberStatus @default(PENDING)
+  registrationDate    DateTime     @default(now())
+  approvalDate        DateTime?
+  membershipRemarks   String?
+
+  
+  staffType String? // Stores 'ADMIN' or 'ACADEMIC'
+
+  campusId Int
+  campus   Campus @relation(fields: [campusId], references: [id])
+
+  userId Int?  @unique
+  user   User? @relation(fields: [userId], references: [id])
+
+  savings        Saving[]
+  shares         Share[]
+  loans          Loan[]
+  payrollRecords PayrollRecord[]
+  guarantors     Guarantor[]
+  documents      Document[]
+}
+
+// =========================
+// SAVINGS
+// =========================
+
+model Saving {
+  id       Int    @id @default(autoincrement())
+  memberId Int
+  member   Member @relation(fields: [memberId], references: [id])
+
+  type          TransactionType
+  category      SavingCategory
+  amount        Decimal         @db.Decimal(12, 2)
+
+  paymentMethod PaymentMethod
+  payrollMonth  DateTime?
+  referenceNo   String?
+  remarks       String?
+
+  transactionDate DateTime @default(now())
+
+  createdById Int?
+  createdBy   User? @relation(fields: [createdById], references: [id])
+}
+
+// =========================
+// SHARES (እጣ)
+// =========================
+
+model Share {
+  id       Int    @id @default(autoincrement())
+  memberId Int
+  member   Member @relation(fields: [memberId], references: [id])
+
+  transactionType ShareTransactionType
+  quantity        Int
+  unitPrice       Decimal @db.Decimal(12, 2)
+  totalAmount     Decimal @db.Decimal(12, 2)
+  cumulativeBalance Decimal @db.Decimal(12, 2)
+
+  contributionDate DateTime @default(now())
+
+  paymentMethod PaymentMethod
+  referenceNo   String?
+  remarks       String?
+
+  createdById Int?
+  createdBy   User? @relation(fields: [createdById], references: [id])
+}
+
+// =========================
+// LOAN TYPES
+// =========================
+
+model LoanType {
+  id            Int     @id @default(autoincrement())
+  name          String
+  interestRate  Decimal @db.Decimal(5, 2)
+  maxMultiplier Decimal @db.Decimal(5, 2)
+
+  loans Loan[]
+}
+
+// =========================
+// LOANS (FIFO SUPPORT)
+// =========================
+
+model Loan {
+  id Int @id @default(autoincrement())
+
+  memberId Int
+  member   Member @relation(fields: [memberId], references: [id])
+
+  loanTypeId Int
+  loanType   LoanType @relation(fields: [loanTypeId], references: [id])
+
+  loanPurpose         String?
+  requestedAmount     Decimal  @db.Decimal(12, 2)
+  approvedAmount      Decimal? @db.Decimal(12, 2)
+  
+  currentSavingBalance Decimal @db.Decimal(12, 2)
+  currentShareBalance  Decimal @db.Decimal(12, 2)
+  existingLoanBalance  Decimal? @db.Decimal(12, 2)
+
+  interestRate        Decimal? @db.Decimal(5, 2)
+  repaymentPeriod     Int?
+  monthlyInstallment  Decimal? @db.Decimal(12, 2)
+
+  applicationDate  DateTime  @default(now())
+  approvalDate     DateTime?
+  disbursementDate DateTime?
+
+  status LoanStatus @default(PENDING)
+
+  queuePosition Int?
+
+  approvedById Int?
+  approvedBy   User? @relation(fields: [approvedById], references: [id])
+
+  guarantors Guarantor[]
+  repayments LoanRepayment[]
+}
+
+// =========================
+// GUARANTORS
+// =========================
+
+model Guarantor {
+  id Int @id @default(autoincrement())
+
+  loanId Int
+  loan   Loan @relation(fields: [loanId], references: [id])
+
+  memberId Int
+  member   Member @relation(fields: [memberId], references: [id])
+
+  guaranteedAmount Decimal @db.Decimal(12, 2)
+  employmentStatus String?
+
+  status       String    @default("PENDING")
+  approvalDate DateTime?
+  remarks      String?
+}
+
+// =========================
+// LOAN REPAYMENTS
+// =========================
+
+model LoanRepayment {
+  id Int @id @default(autoincrement())
+
+  loanId Int
+  loan   Loan @relation(fields: [loanId], references: [id])
+
+  amount      Decimal  @db.Decimal(12, 2)
+  paymentDate DateTime @default(now())
+
+  paymentMethod PaymentMethod
+  referenceNo   String?
+
+  createdById Int?
+  createdBy   User? @relation(fields: [createdById], references: [id])
+}
+
+// =========================
+// PAYROLL
+// =========================
+
+model PayrollUpload {
+  id           Int      @id @default(autoincrement())
+  payrollMonth DateTime
+  payrollYear  Int
+  fileName     String?
+
+  uploadDate DateTime @default(now())
+
+  uploadedById Int
+  uploadedBy   User @relation(fields: [uploadedById], references: [id])
+
+  records PayrollRecord[]
+}
+
+model PayrollRecord {
+  id Int @id @default(autoincrement())
+
+  uploadId Int
+  upload   PayrollUpload @relation(fields: [uploadId], references: [id])
+
+  employeeId   String
+  employeeName String?
+  campusName   String?
+  department   String?
+
+  grossSalary     Decimal @db.Decimal(12, 2)
+  savingDeduction Decimal @db.Decimal(12, 2)
+  shareDeduction  Decimal @db.Decimal(12, 2)
+  loanDeduction   Decimal @db.Decimal(12, 2)
+  otherDeductions Decimal @db.Decimal(12, 2)
+  netSalary       Decimal @db.Decimal(12, 2)
+
+  matchedMemberId Int?
+  member          Member? @relation(fields: [matchedMemberId], references: [id])
+
+  verificationStatus String  @default("PENDING")
+  remarks            String?
+}
+
+// =========================
+// LEDGERS
+// =========================
+
+model BankLedger {
+  id Int @id @default(autoincrement())
+
+  transactionDate DateTime @default(now())
+  type            LedgerTransactionType
+  category        String
+
+  amount      Decimal @db.Decimal(12, 2)
+  referenceNo String?
+  description String?
+
+  balance Decimal @db.Decimal(12, 2)
+
+  relatedMemberId Int?
+  createdById     Int?
+
+  createdBy User? @relation(fields: [createdById], references: [id])
+}
+
+model UnionLedger {
+  id Int @id @default(autoincrement())
+
+  transactionDate DateTime @default(now())
+  type            LedgerTransactionType
+  category        String
+
+  amount      Decimal @db.Decimal(12, 2)
+  referenceNo String?
+  description String?
+
+  balance Decimal @db.Decimal(12, 2)
+
+  relatedMemberId Int?
+  createdById     Int?
+
+  createdBy User? @relation(fields: [createdById], references: [id])
+}
+
+// =========================
+// DOCUMENTS
+// =========================
+
+model Document {
+  id Int @id @default(autoincrement())
+
+  memberId Int
+  member   Member @relation(fields: [memberId], references: [id])
+
+  type     String
+  filePath String
+
+  uploadedAt DateTime @default(now())
+
+  uploadedById Int?
+  uploadedBy   User? @relation(fields: [uploadedById], references: [id])
+}
+
+// =========================
+// NOTIFICATIONS
+// =========================
+
+model Notification {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  title   String
+  message String
+  type    String
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+// =========================
+// AUDIT LOG
+// =========================
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  action    String
+  tableName String
+  recordId  Int?
+
+  oldValue Json?
+  newValue Json?
+
+  createdAt DateTime @default(now())
+}

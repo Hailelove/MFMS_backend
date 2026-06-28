@@ -1,0 +1,128 @@
+import jwt from "jsonwebtoken";
+import User from "../models/userModel.js";
+
+// Helper
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+};
+
+// @desc    Register a new user
+// @route   POST /api/users/register
+// @access  Public
+const registerUser = async (req, res) => {
+  const { name, email, password, role } = req.body;
+
+  if (!name || !email || !password) {
+    return res
+      .status(400)
+      .json({ message: "Please provide name, email, and password" });
+  }
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return res
+      .status(409)
+      .json({ message: "User with this email already exists" });
+  }
+
+  const user = await User.create({ name, email, password, role });
+  const token = generateToken(user._id);
+
+  res.status(201).json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    token,
+  });
+};
+
+// @desc    Login user
+// @route   POST /api/users/login
+// @access  Public
+const loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res
+      .status(400)
+      .json({ message: "Please provide email and password" });
+  }
+
+  const user = await User.findOne({ email }).select("+password");
+  if (!user || !(await user.matchPassword(password))) {
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  const token = generateToken(user._id);
+
+  res.json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    token,
+  });
+};
+
+// @desc    Get all users
+// @route   GET /api/users
+// @access  Private
+const getUsers = async (req, res) => {
+  res.json(req.user);
+};
+
+// @desc    Get user by ID
+// @route   GET /api/users/:id
+// @access  Private
+const getUserById = async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  res.json(user);
+};
+
+// @desc    Update user
+// @route   PUT /api/users/:id
+// @access  Private
+const updateUser = async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const { name, email, password, role } = req.body;
+  if (name) user.name = name;
+  if (email) user.email = email;
+  if (password) user.password = password;
+  if (role) user.role = role;
+
+  const updated = await user.save();
+  res.json({
+    _id: updated._id,
+    name: updated.name,
+    email: updated.email,
+    role: updated.role,
+  });
+};
+
+// @desc    Delete user
+// @route   DELETE /api/users/:id
+// @access  Private
+const deleteUser = async (req, res) => {
+  const user = await User.findByIdAndDelete(req.params.id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  res.json({ message: "User deleted successfully" });
+};
+
+export {
+  registerUser,
+  loginUser,
+  getUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+};
