@@ -6,13 +6,15 @@ import dotenv from "dotenv";
 // Import Routes
 import userRoutes from "./routes/userRoutes.js";
 import campusRoutes from "./routes/campusRoutes.js";
-import staffRoutes from "./routes/staffRoutes.js";
+
 import financeRoutes from "./routes/savingRoutes.js";
 import loanRoutes from "./routes/loanRoutes.js";
 
 import morgan from "morgan";
 import payrollRoutes from "./routes/payrollRoutes.js";
 import ledgerRoutes from "./routes/ledgerRoutes.js";
+import configRoutes from "./routes/configRoutes.js";
+import staffTypeRoutes from "./routes/staffTypeRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -26,7 +28,6 @@ app.use(express.json()); // Parses incoming JSON payloads
 // Your React app is calling api.post('/users/login'), so we mount it at '/users'
 app.use("/users", userRoutes);
 app.use("/campuses", campusRoutes);
-app.use("/staff", staffRoutes);
 app.use("/admin", financeRoutes);
 
 app.use("/admin", loanRoutes);
@@ -37,6 +38,8 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 // Routes
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/ledger", ledgerRoutes);
+app.use("/config", ledgerRoutes);
+app.use("/campuses", staffTypeRoutes);
 
 // Basic health check route
 app.get("/", (req, res) => {

@@ -79,12 +79,7 @@ enum PaymentMethod {
   PAYROLL
 }
 
-enum StaffType {
-  ADMINISTRATIVE
-  ACADEMIC
-  TECHNICAL
-  CONTRACT
-}
+
 
 enum MaritalStatus {
   SINGLE
@@ -191,29 +186,44 @@ model User {
 // =========================
 
 model Campus {
-  id            Int     @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name          String
   code          String  @unique
   location      String?
-  contactPerson String?
-  contactNumber String?
-  email         String?
+  
   status        Boolean @default(true)
   description   String?
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  staff         Staff[] 
   members       Member[]
+  campusStaffTypes CampusStaffType[]
 }
 
-model Staff {
-  id        Int       @id @default(autoincrement())
-  role      StaffType
-  
-  campusId  Int
-  campus    Campus    @relation(fields: [campusId], references: [id], onDelete: Restrict)
+model StaffType {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members Member[]
+  campusStaffTypes CampusStaffType[]
+}
+
+
+model CampusStaffType {
+  id           Int @id @default(autoincrement())
+  campusId    Int
+  staffTypeId Int
+
+  campus    Campus    @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  staffType StaffType @relation(fields: [staffTypeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([campusId, staffTypeId])
 }
 
 // =========================
@@ -265,16 +275,18 @@ model Member {
   approvalDate        DateTime?
   membershipRemarks   String?
 
-  staffType StaffType?
-
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   // Relations
   campusId Int
-  campus   Campus  @relation(fields: [campusId], references: [id], onDelete: Restrict)
+campus Campus @relation(fields: [campusId], references: [id], onDelete: Restrict)
 
+  // Foreign Key for StaffType (Optional)
+  staffTypeId Int?
+
+  staffType StaffType? @relation(fields: [staffTypeId], references: [id])
   userId Int?  @unique
   user   User? @relation(fields: [userId], references: [id])
 
@@ -286,6 +298,7 @@ model Member {
   guarantors     Guarantor[]
   documents      Document[]
   memberBalance  MemberBalance?
+  
 
   @@index([campusId])
   @@index([status])

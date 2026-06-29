@@ -7,7 +7,7 @@ async function main() {
   console.log("Starting database seeding...");
 
   // ==========================================
-  // 1. CLEANUP (Correct order)
+  // 1. CLEANUP (SAFE ORDER)
   // ==========================================
   console.log("Cleaning existing data...");
 
@@ -23,19 +23,22 @@ async function main() {
   await prisma.share.deleteMany();
   await prisma.saving.deleteMany();
   await prisma.member.deleteMany();
-  await prisma.staff.deleteMany();
+
+  // ❌ STAFF REMOVED COMPLETELY (as per your new design)
+
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
+  await prisma.staffType.deleteMany();
   await prisma.campus.deleteMany();
   await prisma.loanType.deleteMany();
   await prisma.systemConfiguration.deleteMany();
 
   // ==========================================
-  // 2. SYSTEM CONFIGURATION
+  // 2. SYSTEM CONFIG
   // ==========================================
   console.log("Seeding System Configuration...");
 
-  const config = await prisma.systemConfiguration.create({
+  await prisma.systemConfiguration.create({
     data: {
       systemName: "University Saving, Share, Credit and Loan Management System",
       cooperativeInfo: "Mekdela Amba University Staff Cooperative",
@@ -73,14 +76,27 @@ async function main() {
 
   const campus2 = await prisma.campus.create({
     data: {
-      name: "Technology Campus",
+      name: "Branch Campus",
       code: "TC-02",
       location: "Mekane Selam",
     },
   });
 
   // ==========================================
-  // 4. USERS
+  // 4. STAFF TYPES (GLOBAL MASTER DATA)
+  // ==========================================
+  console.log("Seeding Staff Types...");
+
+  const adminType = await prisma.staffType.create({
+    data: { name: "ADMIN" },
+  });
+
+  const academicType = await prisma.staffType.create({
+    data: { name: "ACADEMIC" },
+  });
+
+  // ==========================================
+  // 5. USERS
   // ==========================================
   console.log("Seeding Users...");
 
@@ -114,19 +130,7 @@ async function main() {
   });
 
   // ==========================================
-  // 5. STAFF (NO NAME FIELD - CORRECT)
-  // ==========================================
-  console.log("Seeding Staff...");
-
-  await prisma.staff.createMany({
-    data: [
-      { role: "ADMINISTRATIVE", campusId: campus1.id },
-      { role: "ACADEMIC", campusId: campus2.id },
-    ],
-  });
-
-  // ==========================================
-  // 6. MEMBERS
+  // 6. MEMBERS (NOW INCLUDE STAFF TYPE)
   // ==========================================
   console.log("Seeding Members...");
 
@@ -136,13 +140,13 @@ async function main() {
       employeeId: "EMP-001",
       fullName: "John Doe",
       phone: "0911000001",
-
       initialSavingAmount: 1000,
       initialShareAmount: 5000,
       monthlySalary: 15000,
       employmentStatus: "ACTIVE",
       status: "ACTIVE",
       campusId: campus1.id,
+      staffTypeId: adminType.id,
       userId: user1.id,
     },
   });
@@ -155,11 +159,11 @@ async function main() {
       phone: "0911000002",
       initialSavingAmount: 1200,
       initialShareAmount: 8000,
-
       monthlySalary: 22000,
       employmentStatus: "ACTIVE",
       status: "ACTIVE",
       campusId: campus2.id,
+      staffTypeId: academicType.id,
       userId: user2.id,
     },
   });
@@ -221,11 +225,11 @@ async function main() {
   });
 
   // ==========================================
-  // 9. LOAN TYPES + LOANS
+  // 9. LOANS
   // ==========================================
   console.log("Seeding Loans...");
 
-  const loanType = await prisma.loanType.createMany({
+  await prisma.loanType.createMany({
     data: [
       { name: "Personal Loan", interestRate: 5.5, maxMultiplier: 6 },
       { name: "Emergency Loan", interestRate: 3, maxMultiplier: 2 },
@@ -234,7 +238,7 @@ async function main() {
 
   const loanTypes = await prisma.loanType.findMany();
 
-  const loan1 = await prisma.loan.create({
+  await prisma.loan.create({
     data: {
       memberId: member1.id,
       loanTypeId: loanTypes[0].id,
@@ -248,7 +252,7 @@ async function main() {
     },
   });
 
-  const loan2 = await prisma.loan.create({
+  await prisma.loan.create({
     data: {
       memberId: member2.id,
       loanTypeId: loanTypes[1].id,
@@ -257,135 +261,6 @@ async function main() {
       currentSavingBalance: 800,
       currentShareBalance: 10000,
       status: "PENDING",
-    },
-  });
-
-  // ==========================================
-  // 10. GUARANTOR + REPAYMENT
-  // ==========================================
-  console.log("Seeding Guarantors & Repayments...");
-
-  await prisma.guarantor.create({
-    data: {
-      loanId: loan1.id,
-      memberId: member2.id,
-      guaranteedAmount: 30000,
-      status: "APPROVED",
-    },
-  });
-
-  await prisma.loanRepayment.createMany({
-    data: [
-      {
-        loanId: loan1.id,
-        amount: 1320,
-        paymentMethod: "PAYROLL",
-        createdById: admin.id,
-      },
-      {
-        loanId: loan1.id,
-        amount: 1320,
-        paymentMethod: "PAYROLL",
-        createdById: admin.id,
-      },
-    ],
-  });
-
-  // ==========================================
-  // 11. PAYROLL
-  // ==========================================
-  console.log("Seeding Payroll...");
-
-  const payroll = await prisma.payrollUpload.create({
-    data: {
-      payrollMonth: new Date("2026-06-01"),
-      payrollYear: 2026,
-      uploadedById: admin.id,
-    },
-  });
-
-  await prisma.payrollRecord.createMany({
-    data: [
-      {
-        uploadId: payroll.id,
-        employeeId: "EMP-001",
-        grossSalary: 15000,
-        savingDeduction: 500,
-        shareDeduction: 0,
-        loanDeduction: 1320,
-        otherDeductions: 2000,
-        netSalary: 11180,
-        matchedMemberId: member1.id,
-        verificationStatus: "VERIFIED",
-      },
-      {
-        uploadId: payroll.id,
-        employeeId: "EMP-002",
-        grossSalary: 22000,
-        savingDeduction: 800,
-        shareDeduction: 100,
-        loanDeduction: 0,
-        otherDeductions: 3500,
-        netSalary: 17600,
-        matchedMemberId: member2.id,
-        verificationStatus: "VERIFIED",
-      },
-    ],
-  });
-
-  // ==========================================
-  // 12. LEDGERS
-  // ==========================================
-  console.log("Seeding Ledgers...");
-
-  await prisma.ledger.createMany({
-    data: [
-      {
-        ledgerType: "BANK",
-        transactionType: "DEPOSIT",
-        category: "Shares",
-        amount: 15000,
-        balance: 15000,
-        createdById: admin.id,
-      },
-      {
-        ledgerType: "UNION",
-        transactionType: "DEPOSIT",
-        category: "Savings",
-        amount: 8000,
-        balance: 23000,
-        createdById: admin.id,
-      },
-    ],
-  });
-
-  // ==========================================
-  // 13. NOTIFICATIONS + AUDIT
-  // ==========================================
-  console.log("Seeding Notifications...");
-
-  await prisma.notification.createMany({
-    data: [
-      {
-        userId: user1.id,
-        title: "Welcome",
-        message: "Your membership is active",
-        type: "SYSTEM",
-      },
-      {
-        userId: user2.id,
-        title: "Loan Update",
-        message: "Your loan is pending approval",
-        type: "LOAN",
-      },
-    ],
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: admin.id,
-      action: "SEED",
-      tableName: "SYSTEM",
     },
   });
 

@@ -26,9 +26,6 @@ CREATE TYPE "LoanStatus" AS ENUM ('PENDING', 'QUEUED', 'APPROVED', 'REJECTED', '
 CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'BANK', 'PAYROLL');
 
 -- CreateEnum
-CREATE TYPE "StaffType" AS ENUM ('ADMINISTRATIVE', 'ACADEMIC', 'TECHNICAL', 'CONTRACT');
-
--- CreateEnum
 CREATE TYPE "MaritalStatus" AS ENUM ('SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED');
 
 -- CreateEnum
@@ -97,9 +94,6 @@ CREATE TABLE "Campus" (
     "name" TEXT NOT NULL,
     "code" TEXT NOT NULL,
     "location" TEXT,
-    "contactPerson" TEXT,
-    "contactNumber" TEXT,
-    "email" TEXT,
     "status" BOOLEAN NOT NULL DEFAULT true,
     "description" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -109,12 +103,23 @@ CREATE TABLE "Campus" (
 );
 
 -- CreateTable
-CREATE TABLE "Staff" (
+CREATE TABLE "StaffType" (
     "id" SERIAL NOT NULL,
-    "role" "StaffType" NOT NULL,
-    "campusId" INTEGER NOT NULL,
+    "name" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Staff_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "StaffType_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CampusStaffType" (
+    "id" SERIAL NOT NULL,
+    "campusId" INTEGER NOT NULL,
+    "staffTypeId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CampusStaffType_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -150,11 +155,11 @@ CREATE TABLE "Member" (
     "registrationDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "approvalDate" TIMESTAMP(3),
     "membershipRemarks" TEXT,
-    "staffType" "StaffType",
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
     "campusId" INTEGER NOT NULL,
+    "staffTypeId" INTEGER,
     "userId" INTEGER,
 
     CONSTRAINT "Member_pkey" PRIMARY KEY ("id")
@@ -394,6 +399,12 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "Campus_code_key" ON "Campus"("code");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "StaffType_name_key" ON "StaffType"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CampusStaffType_campusId_staffTypeId_key" ON "CampusStaffType"("campusId", "staffTypeId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Member_membershipNo_key" ON "Member"("membershipNo");
 
 -- CreateIndex
@@ -454,10 +465,16 @@ ALTER TABLE "SystemConfiguration" ADD CONSTRAINT "SystemConfiguration_updatedByI
 ALTER TABLE "User" ADD CONSTRAINT "User_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Staff" ADD CONSTRAINT "Staff_campusId_fkey" FOREIGN KEY ("campusId") REFERENCES "Campus"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "CampusStaffType" ADD CONSTRAINT "CampusStaffType_campusId_fkey" FOREIGN KEY ("campusId") REFERENCES "Campus"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CampusStaffType" ADD CONSTRAINT "CampusStaffType_staffTypeId_fkey" FOREIGN KEY ("staffTypeId") REFERENCES "StaffType"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Member" ADD CONSTRAINT "Member_campusId_fkey" FOREIGN KEY ("campusId") REFERENCES "Campus"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Member" ADD CONSTRAINT "Member_staffTypeId_fkey" FOREIGN KEY ("staffTypeId") REFERENCES "StaffType"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Member" ADD CONSTRAINT "Member_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
