@@ -11,7 +11,7 @@ CREATE TYPE "EmploymentStatus" AS ENUM ('ACTIVE', 'RESIGNED', 'RETIRED', 'TERMIN
 CREATE TYPE "TransactionType" AS ENUM ('DEPOSIT', 'WITHDRAWAL', 'ADJUSTMENT');
 
 -- CreateEnum
-CREATE TYPE "SavingCategory" AS ENUM ('MONTHLY_SAVING', 'ADDITIONAL_SAVING', 'WITHDRAWAL', 'ADJUSTMENT');
+CREATE TYPE "SavingCategory" AS ENUM ('INITIAL_SAVING', 'MONTHLY_SAVING', 'ADDITIONAL_SAVING', 'WITHDRAWAL', 'ADJUSTMENT');
 
 -- CreateEnum
 CREATE TYPE "ShareTransactionType" AS ENUM ('INITIAL_SHARE', 'ADDITIONAL_SHARE', 'ADJUSTMENT');
@@ -24,6 +24,24 @@ CREATE TYPE "LoanStatus" AS ENUM ('PENDING', 'QUEUED', 'APPROVED', 'REJECTED', '
 
 -- CreateEnum
 CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'BANK', 'PAYROLL');
+
+-- CreateEnum
+CREATE TYPE "StaffType" AS ENUM ('ADMINISTRATIVE', 'ACADEMIC', 'TECHNICAL', 'CONTRACT');
+
+-- CreateEnum
+CREATE TYPE "MaritalStatus" AS ENUM ('SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED');
+
+-- CreateEnum
+CREATE TYPE "EmploymentType" AS ENUM ('PERMANENT', 'CONTRACT', 'TEMPORARY');
+
+-- CreateEnum
+CREATE TYPE "GuarantorStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'RELEASED');
+
+-- CreateEnum
+CREATE TYPE "PayrollVerificationStatus" AS ENUM ('PENDING', 'VERIFIED', 'DISCREPANCY');
+
+-- CreateEnum
+CREATE TYPE "LedgerType" AS ENUM ('BANK', 'UNION');
 
 -- CreateTable
 CREATE TABLE "SystemConfiguration" (
@@ -66,6 +84,8 @@ CREATE TABLE "User" (
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "lastLogin" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
     "roleId" INTEGER NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
@@ -82,6 +102,8 @@ CREATE TABLE "Campus" (
     "email" TEXT,
     "status" BOOLEAN NOT NULL DEFAULT true,
     "description" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Campus_pkey" PRIMARY KEY ("id")
 );
@@ -89,8 +111,9 @@ CREATE TABLE "Campus" (
 -- CreateTable
 CREATE TABLE "Staff" (
     "id" SERIAL NOT NULL,
-    "role" TEXT NOT NULL,
+    "role" "StaffType" NOT NULL,
     "campusId" INTEGER NOT NULL,
+
     CONSTRAINT "Staff_pkey" PRIMARY KEY ("id")
 );
 
@@ -104,16 +127,18 @@ CREATE TABLE "Member" (
     "dateOfBirth" TIMESTAMP(3),
     "phone" TEXT,
     "email" TEXT,
+    "initialSavingAmount" DECIMAL(12,2) NOT NULL,
+    "initialShareAmount" DECIMAL(12,2) NOT NULL,
     "residentialAddress" TEXT,
     "nationalId" TEXT,
     "emergencyContact" TEXT,
-    "maritalStatus" TEXT,
     "emergencyContactRel" TEXT,
+    "maritalStatus" "MaritalStatus",
     "department" TEXT,
     "collegeFaculty" TEXT,
     "officeUnit" TEXT,
     "position" TEXT,
-    "employmentType" TEXT,
+    "employmentType" "EmploymentType",
     "monthlySalary" DECIMAL(12,2) NOT NULL,
     "dateOfEmployment" TIMESTAMP(3),
     "employmentStatus" "EmploymentStatus" NOT NULL DEFAULT 'ACTIVE',
@@ -125,6 +150,10 @@ CREATE TABLE "Member" (
     "registrationDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "approvalDate" TIMESTAMP(3),
     "membershipRemarks" TEXT,
+    "staffType" "StaffType",
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
     "campusId" INTEGER NOT NULL,
     "userId" INTEGER,
 
@@ -138,12 +167,15 @@ CREATE TABLE "Saving" (
     "type" "TransactionType" NOT NULL,
     "category" "SavingCategory" NOT NULL,
     "amount" DECIMAL(12,2) NOT NULL,
+    "isInitialTransaction" BOOLEAN NOT NULL DEFAULT false,
     "paymentMethod" "PaymentMethod" NOT NULL,
     "payrollMonth" TIMESTAMP(3),
     "referenceNo" TEXT,
     "remarks" TEXT,
     "transactionDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdById" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Saving_pkey" PRIMARY KEY ("id")
 );
@@ -157,13 +189,32 @@ CREATE TABLE "Share" (
     "unitPrice" DECIMAL(12,2) NOT NULL,
     "totalAmount" DECIMAL(12,2) NOT NULL,
     "cumulativeBalance" DECIMAL(12,2) NOT NULL,
+    "isInitialTransaction" BOOLEAN NOT NULL DEFAULT false,
     "contributionDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "paymentMethod" "PaymentMethod" NOT NULL,
     "referenceNo" TEXT,
     "remarks" TEXT,
     "createdById" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Share_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "MemberBalance" (
+    "id" SERIAL NOT NULL,
+    "memberId" INTEGER NOT NULL,
+    "savingBalance" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "shareBalance" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "activeLoanBalance" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "totalLoanPaid" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "registeredSavingAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "registeredShareAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "MemberBalance_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -196,6 +247,10 @@ CREATE TABLE "Loan" (
     "status" "LoanStatus" NOT NULL DEFAULT 'PENDING',
     "queuePosition" INTEGER,
     "approvedById" INTEGER,
+    "disbursedById" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "Loan_pkey" PRIMARY KEY ("id")
 );
@@ -207,9 +262,12 @@ CREATE TABLE "Guarantor" (
     "memberId" INTEGER NOT NULL,
     "guaranteedAmount" DECIMAL(12,2) NOT NULL,
     "employmentStatus" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" "GuarantorStatus" NOT NULL DEFAULT 'PENDING',
     "approvalDate" TIMESTAMP(3),
     "remarks" TEXT,
+    "actionedById" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Guarantor_pkey" PRIMARY KEY ("id")
 );
@@ -223,6 +281,8 @@ CREATE TABLE "LoanRepayment" (
     "paymentMethod" "PaymentMethod" NOT NULL,
     "referenceNo" TEXT,
     "createdById" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "LoanRepayment_pkey" PRIMARY KEY ("id")
 );
@@ -235,6 +295,8 @@ CREATE TABLE "PayrollUpload" (
     "fileName" TEXT,
     "uploadDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "uploadedById" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "PayrollUpload_pkey" PRIMARY KEY ("id")
 );
@@ -254,42 +316,30 @@ CREATE TABLE "PayrollRecord" (
     "otherDeductions" DECIMAL(12,2) NOT NULL,
     "netSalary" DECIMAL(12,2) NOT NULL,
     "matchedMemberId" INTEGER,
-    "verificationStatus" TEXT NOT NULL DEFAULT 'PENDING',
+    "verificationStatus" "PayrollVerificationStatus" NOT NULL DEFAULT 'PENDING',
     "remarks" TEXT,
 
     CONSTRAINT "PayrollRecord_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "BankLedger" (
+CREATE TABLE "Ledger" (
     "id" SERIAL NOT NULL,
+    "ledgerType" "LedgerType" NOT NULL,
     "transactionDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "type" "LedgerTransactionType" NOT NULL,
+    "transactionType" "LedgerTransactionType" NOT NULL,
     "category" TEXT NOT NULL,
     "amount" DECIMAL(12,2) NOT NULL,
+    "balance" DECIMAL(12,2) NOT NULL,
+    "memberId" INTEGER,
+    "createdById" INTEGER NOT NULL,
     "referenceNo" TEXT,
     "description" TEXT,
-    "balance" DECIMAL(12,2) NOT NULL,
-    "relatedMemberId" INTEGER,
-    "createdById" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
 
-    CONSTRAINT "BankLedger_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "UnionLedger" (
-    "id" SERIAL NOT NULL,
-    "transactionDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "type" "LedgerTransactionType" NOT NULL,
-    "category" TEXT NOT NULL,
-    "amount" DECIMAL(12,2) NOT NULL,
-    "referenceNo" TEXT,
-    "description" TEXT,
-    "balance" DECIMAL(12,2) NOT NULL,
-    "relatedMemberId" INTEGER,
-    "createdById" INTEGER,
-
-    CONSTRAINT "UnionLedger_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Ledger_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -355,6 +405,48 @@ CREATE UNIQUE INDEX "Member_phone_key" ON "Member"("phone");
 -- CreateIndex
 CREATE UNIQUE INDEX "Member_userId_key" ON "Member"("userId");
 
+-- CreateIndex
+CREATE INDEX "Member_campusId_idx" ON "Member"("campusId");
+
+-- CreateIndex
+CREATE INDEX "Member_status_idx" ON "Member"("status");
+
+-- CreateIndex
+CREATE INDEX "Saving_memberId_transactionDate_idx" ON "Saving"("memberId", "transactionDate");
+
+-- CreateIndex
+CREATE INDEX "Saving_memberId_type_idx" ON "Saving"("memberId", "type");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Saving_memberId_referenceNo_key" ON "Saving"("memberId", "referenceNo");
+
+-- CreateIndex
+CREATE INDEX "Share_memberId_contributionDate_idx" ON "Share"("memberId", "contributionDate");
+
+-- CreateIndex
+CREATE INDEX "Share_memberId_transactionType_idx" ON "Share"("memberId", "transactionType");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Share_memberId_referenceNo_key" ON "Share"("memberId", "referenceNo");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MemberBalance_memberId_key" ON "MemberBalance"("memberId");
+
+-- CreateIndex
+CREATE INDEX "Loan_status_applicationDate_idx" ON "Loan"("status", "applicationDate");
+
+-- CreateIndex
+CREATE INDEX "Loan_status_queuePosition_idx" ON "Loan"("status", "queuePosition");
+
+-- CreateIndex
+CREATE INDEX "Loan_memberId_status_idx" ON "Loan"("memberId", "status");
+
+-- CreateIndex
+CREATE INDEX "PayrollRecord_employeeId_idx" ON "PayrollRecord"("employeeId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PayrollRecord_employeeId_uploadId_key" ON "PayrollRecord"("employeeId", "uploadId");
+
 -- AddForeignKey
 ALTER TABLE "SystemConfiguration" ADD CONSTRAINT "SystemConfiguration_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -383,6 +475,9 @@ ALTER TABLE "Share" ADD CONSTRAINT "Share_memberId_fkey" FOREIGN KEY ("memberId"
 ALTER TABLE "Share" ADD CONSTRAINT "Share_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "MemberBalance" ADD CONSTRAINT "MemberBalance_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Loan" ADD CONSTRAINT "Loan_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -392,10 +487,16 @@ ALTER TABLE "Loan" ADD CONSTRAINT "Loan_loanTypeId_fkey" FOREIGN KEY ("loanTypeI
 ALTER TABLE "Loan" ADD CONSTRAINT "Loan_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Loan" ADD CONSTRAINT "Loan_disbursedById_fkey" FOREIGN KEY ("disbursedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Guarantor" ADD CONSTRAINT "Guarantor_loanId_fkey" FOREIGN KEY ("loanId") REFERENCES "Loan"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Guarantor" ADD CONSTRAINT "Guarantor_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Guarantor" ADD CONSTRAINT "Guarantor_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Guarantor" ADD CONSTRAINT "Guarantor_actionedById_fkey" FOREIGN KEY ("actionedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "LoanRepayment" ADD CONSTRAINT "LoanRepayment_loanId_fkey" FOREIGN KEY ("loanId") REFERENCES "Loan"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -407,25 +508,25 @@ ALTER TABLE "LoanRepayment" ADD CONSTRAINT "LoanRepayment_createdById_fkey" FORE
 ALTER TABLE "PayrollUpload" ADD CONSTRAINT "PayrollUpload_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PayrollRecord" ADD CONSTRAINT "PayrollRecord_uploadId_fkey" FOREIGN KEY ("uploadId") REFERENCES "PayrollUpload"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "PayrollRecord" ADD CONSTRAINT "PayrollRecord_uploadId_fkey" FOREIGN KEY ("uploadId") REFERENCES "PayrollUpload"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PayrollRecord" ADD CONSTRAINT "PayrollRecord_matchedMemberId_fkey" FOREIGN KEY ("matchedMemberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BankLedger" ADD CONSTRAINT "BankLedger_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Ledger" ADD CONSTRAINT "Ledger_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UnionLedger" ADD CONSTRAINT "UnionLedger_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Ledger" ADD CONSTRAINT "Ledger_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Document" ADD CONSTRAINT "Document_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Document" ADD CONSTRAINT "Document_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "Member"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Document" ADD CONSTRAINT "Document_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;

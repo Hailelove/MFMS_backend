@@ -123,3 +123,14 @@ export const registerMember = async (req, res) => {
     details: error.message;
   }
 };
+
+export const getAllMembers = async (req, res) => {
+  try {
+    const members = await prisma.member.findMany({
+      include: { user: true },
+    });
+    res.status(200).json(members);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch members" });
+  }
+};
